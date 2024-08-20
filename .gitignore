@@ -1,0 +1,4 @@
+*.exe
+gcal-cli
+token.json
+credentials.json

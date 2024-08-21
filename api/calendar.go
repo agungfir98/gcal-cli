@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"gcal-cli/auth"
+	"gcal-cli/utils"
 	"log"
 	"os"
 
@@ -12,7 +13,8 @@ import (
 )
 
 func GetCalendar() *calendar.Service {
-	b, err := os.ReadFile("credentials.json")
+	path := utils.GetCredentialsFile()
+	b, err := os.ReadFile(path)
 	if err != nil {
 		log.Fatalf("unable to read credentials file: %v\n", err)
 	}

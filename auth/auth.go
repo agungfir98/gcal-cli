@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"gcal-cli/utils"
 	"log"
 	"net/http"
 	"os"
@@ -12,7 +13,7 @@ import (
 )
 
 func GetClient(config *oauth2.Config) *http.Client {
-	tokenFile := "token.json"
+	tokenFile := utils.GetTokenFile()
 	token, err := TokenFromFile(tokenFile)
 	if err != nil {
 		t := GetTokenFromWeb(config)

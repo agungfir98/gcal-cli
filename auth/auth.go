@@ -13,11 +13,11 @@ import (
 )
 
 func GetClient(config *oauth2.Config) *http.Client {
-	tokenFile := utils.GetTokenFile()
+	tokenFile := pathutils.GetTokenFile()
 	token, err := TokenFromFile(tokenFile)
 	if err != nil {
-		t := GetTokenFromWeb(config)
-		saveToken(tokenFile, t)
+		token = GetTokenFromWeb(config)
+		saveToken(tokenFile, token)
 	}
 
 	return config.Client(context.Background(), token)

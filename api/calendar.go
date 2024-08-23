@@ -3,9 +3,7 @@ package api
 import (
 	"context"
 	"gcal-cli/auth"
-	"gcal-cli/utils"
 	"log"
-	"os"
 
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/calendar/v3"
@@ -13,11 +11,7 @@ import (
 )
 
 func GetCalendar() *calendar.Service {
-	path := utils.GetCredentialsFile()
-	b, err := os.ReadFile(path)
-	if err != nil {
-		log.Fatalf("unable to read credentials file: %v\n", err)
-	}
+	b := auth.GetCredential()
 
 	cfg, err := google.ConfigFromJSON(b, calendar.CalendarReadonlyScope)
 	if err != nil {

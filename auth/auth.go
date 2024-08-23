@@ -67,3 +67,12 @@ func saveToken(path string, token *oauth2.Token) {
 	defer f.Close()
 	json.NewEncoder(f).Encode(token)
 }
+
+func GetCredential() []byte {
+	path := utils.GetCredentialsFile()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatalf("unable to read credentials file: %v\n", err)
+	}
+	return b
+}

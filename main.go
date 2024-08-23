@@ -5,10 +5,8 @@ package main
 
 import (
 	"gcal-cli/cmd"
-	"gcal-cli/utils"
 )
 
 func main() {
-	utils.CreateConfigPath()
 	cmd.Execute()
 }

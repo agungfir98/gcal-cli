@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"gcal-cli/utils"
+	pathutils "gcal-cli/utils/path_utils"
 	"log"
 	"net/http"
 	"os"
@@ -69,7 +69,7 @@ func saveToken(path string, token *oauth2.Token) {
 }
 
 func GetCredential() []byte {
-	path := utils.GetCredentialsFile()
+	path := pathutils.GetCredentialsFile()
 	b, err := os.ReadFile(path)
 	if err != nil {
 		log.Fatalf("unable to read credentials file: %v\n", err)

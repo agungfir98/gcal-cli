@@ -9,8 +9,10 @@ import (
 	"gcal-cli/utils"
 	timeutils "gcal-cli/utils/time_utils"
 	"log"
+	"os"
 	"time"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
 
@@ -47,15 +49,54 @@ var eventsCmd = &cobra.Command{
 			return
 		}
 
+		table := tablewriter.NewWriter(os.Stdout)
+		table.SetHeader([]string{"summary", "start", "end", "attendee"})
+
 		for _, item := range events.Items {
-			date := item.Start.DateTime
-			if date == "" {
-				date = item.Start.Date
+			itemStart := item.Start.DateTime
+			if itemStart == "" {
+				itemStart = item.Start.Date
 			}
 
-			fmt.Printf("%s (%v)\n", item.Summary, date)
+			start, err := time.Parse(time.RFC3339, itemStart)
+			if err != nil {
+				log.Fatalf("unable to parse time start")
+			}
+
+			itemEnd := item.End.DateTime
+			if itemEnd == "" {
+				itemEnd = item.Start.Date
+			}
+
+			end, err := time.Parse(time.RFC3339, itemEnd)
+			if err != nil {
+				log.Fatalf("unable to parse time end")
+			}
+
+			var attendeeInfo string
+
+			for i, attendee := range item.Attendees {
+				if i > 0 {
+					attendeeInfo += "\n"
+				}
+				if attendee.DisplayName != "" {
+					attendeeInfo += attendee.DisplayName + "(" + attendee.Email + ")"
+				}
+				attendeeInfo += attendee.Email
+			}
+
+			event := Event{
+				// Id:        item.Id,
+				Summary:   item.Summary,
+				Start:     start.Format(timeutils.DefaultLayout),
+				End:       end.Format(timeutils.DefaultLayout),
+				Attendees: attendeeInfo,
+			}
+			row := []string{event.Summary, event.Start, event.End, event.Attendees}
+			table.Append(row)
 		}
 
+		table.Render()
 	},
 }
 
@@ -71,3 +112,11 @@ var showAttendee bool
 var max int64
 var timeMin string
 var timeMax string
+
+type Event struct {
+	// Id        string `json:"id"`
+	Start     string `json:"start"`
+	Summary   string `json:"summary"`
+	End       string `json:"end"`
+	Attendees string `json:"attendee"`
+}

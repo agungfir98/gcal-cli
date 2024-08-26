@@ -103,7 +103,7 @@ var eventsCmd = &cobra.Command{
 func init() {
 	eventsCmd.Flags().BoolVar(&showAttendee, "show-attendee", false, "show attendee")
 	eventsCmd.Flags().StringVar(&timeMin, "min-time", time.Now().Format(timeutils.DefaultLayout), "min-time of the events to be fetched\n")
-	eventsCmd.Flags().StringVar(&timeMax, "max-time", timeutils.EndOfDay(time.Now()).Format(timeutils.DefaultLayout), "max-time of the events to be fetched\n")
+	eventsCmd.Flags().StringVar(&timeMax, "max-time", timeutils.EndOfDay().Format(timeutils.DefaultLayout), "max-time of the events to be fetched\n")
 	eventsCmd.Flags().Int64VarP(&max, "max", "m", 10, "max events to be fetched")
 	rootCmd.AddCommand(eventsCmd)
 }

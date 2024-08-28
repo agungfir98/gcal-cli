@@ -64,8 +64,6 @@ var calwCmd = &cobra.Command{
 			weekSlc[dayInt] = append(weekSlc[dayInt], data)
 		}
 
-		transposed := [][7]string{}
-
 		maxLen := 0
 
 		for _, row := range weekSlc {
@@ -74,9 +72,7 @@ var calwCmd = &cobra.Command{
 			}
 		}
 
-		for i := 0; i < maxLen; i++ {
-			transposed = append(transposed, [7]string{})
-		}
+		transposed := make([][7]string, maxLen)
 
 		for i := range weekSlc {
 			for j := range weekSlc[i] {

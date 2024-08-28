@@ -55,7 +55,11 @@ var eventsCmd = &cobra.Command{
 		for _, item := range events.Items {
 			itemStart := item.Start.DateTime
 			if itemStart == "" {
-				itemStart = item.Start.Date
+				dateStart, err := time.Parse(timeutils.AllDayDefaultLayout, item.Start.Date)
+				if err != nil {
+					fmt.Printf("unable to parse all day date: %v\n", err)
+				}
+				itemStart = dateStart.Format(time.RFC3339)
 			}
 
 			start, err := time.Parse(time.RFC3339, itemStart)
@@ -65,7 +69,11 @@ var eventsCmd = &cobra.Command{
 
 			itemEnd := item.End.DateTime
 			if itemEnd == "" {
-				itemEnd = item.Start.Date
+				dateEnd, err := time.Parse(timeutils.AllDayDefaultLayout, item.Start.Date)
+				if err != nil {
+					fmt.Printf("unable to parse all day date: %v\n", err)
+				}
+				itemEnd = timeutils.EndOfDay(dateEnd).Format(time.RFC3339)
 			}
 
 			end, err := time.Parse(time.RFC3339, itemEnd)

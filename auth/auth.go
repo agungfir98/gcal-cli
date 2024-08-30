@@ -20,6 +20,18 @@ func GetClient(config *oauth2.Config) *http.Client {
 		saveToken(tokenFile, token)
 	}
 
+	tokenSource := config.TokenSource(context.Background(), token)
+	refreshedToken, err := tokenSource.Token()
+	if err != nil {
+		fmt.Printf("unable to refresh the token: %v\n", err)
+		token = GetTokenFromWeb(config)
+		saveToken(tokenFile, token)
+	}
+
+	if refreshedToken.AccessToken != token.AccessToken {
+		saveToken(tokenFile, refreshedToken)
+	}
+
 	return config.Client(context.Background(), token)
 }
 

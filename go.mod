@@ -1,4 +1,4 @@
-module gcal-cli
+module github.com/agungfir98/gcal-cli
 
 go 1.22.5
 

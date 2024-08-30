@@ -5,13 +5,13 @@ package cmd
 
 import (
 	"fmt"
-	"gcal-cli/api"
-	"gcal-cli/utils"
-	timeutils "gcal-cli/utils/time_utils"
 	"log"
 	"os"
 	"time"
 
+	"github.com/agungfir98/gcal-cli/api"
+	"github.com/agungfir98/gcal-cli/utils"
+	timeutils "github.com/agungfir98/gcal-cli/utils/time_utils"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )

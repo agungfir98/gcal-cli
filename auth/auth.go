@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	pathutils "gcal-cli/utils/path_utils"
 	"log"
 	"net/http"
 	"os"
 
+	pathutils "github.com/agungfir98/gcal-cli/utils/path_utils"
 	"golang.org/x/oauth2"
 )
 

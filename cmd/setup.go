@@ -5,11 +5,11 @@ package cmd
 
 import (
 	"fmt"
-	pathutils "gcal-cli/utils/path_utils"
 	"log"
 	"os"
 	"path/filepath"
 
+	pathutils "github.com/agungfir98/gcal-cli/utils/path_utils"
 	"github.com/spf13/cobra"
 )
 

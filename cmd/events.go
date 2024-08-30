@@ -39,6 +39,7 @@ var eventsCmd = &cobra.Command{
 		go utils.ShowLoading(loading)
 		events, err := srv.Events.List("primary").ShowDeleted(false).SingleEvents(true).TimeMin(tMin.Local().Format(time.RFC3339)).TimeMax(tMax.Format(time.RFC3339)).MaxResults(max).OrderBy("startTime").Do()
 		loading <- true
+		close(loading)
 
 		if err != nil {
 			log.Fatalf("unable to retreive next ten events: %v\n", err)

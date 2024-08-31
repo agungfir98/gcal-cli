@@ -17,6 +17,7 @@ func GetClient(config *oauth2.Config) *http.Client {
 	token, err := TokenFromFile(tokenFile)
 	if err != nil {
 		token = GetTokenFromWeb(config)
+		fmt.Printf("\rSaving token file to: %s\n", tokenFile)
 		saveToken(tokenFile, token)
 	}
 
@@ -25,10 +26,12 @@ func GetClient(config *oauth2.Config) *http.Client {
 	if err != nil {
 		fmt.Printf("unable to refresh the token: %v\n", err)
 		token = GetTokenFromWeb(config)
+		fmt.Printf("\rSaving token file to: %s\n", tokenFile)
 		saveToken(tokenFile, token)
 	}
 
 	if refreshedToken.AccessToken != token.AccessToken {
+		fmt.Printf("\rToken refreshed, saving token file to: %s\n", tokenFile)
 		saveToken(tokenFile, refreshedToken)
 	}
 
@@ -71,7 +74,6 @@ func GetTokenFromWeb(cfg *oauth2.Config) *oauth2.Token {
 }
 
 func saveToken(path string, token *oauth2.Token) {
-	fmt.Printf("Saving credential file to: %s\n", path)
 	f, err := os.Create(path)
 	if err != nil {
 		log.Fatalf("Unable to cache oauth token: %v", err)

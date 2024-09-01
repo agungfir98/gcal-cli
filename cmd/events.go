@@ -121,7 +121,6 @@ func ParseDates(start, end string) (time.Time, time.Time) {
 	}
 
 	if end == "" {
-		fmt.Println("this fired!")
 		end = timeutils.EndOfDay(s).Format(timeutils.DefaultLayout)
 	}
 

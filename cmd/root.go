@@ -9,9 +9,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var version string = "v0.1.0"
+
 var rootCmd = &cobra.Command{
-	Use:   "gcal-cli",
-	Short: "Google calendar cli tool",
+	Use:     "gcal-cli",
+	Short:   "Google calendar cli tool",
+	Version: version,
 	Long: `
  ██████╗  ██████╗ █████╗ ██╗       ██████╗██╗     ██╗
 ██╔════╝ ██╔════╝██╔══██╗██║      ██╔════╝██║     ██║

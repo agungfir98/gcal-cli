@@ -21,23 +21,13 @@ var eventsCmd = &cobra.Command{
 	Short: "shows event in your google calendar",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		//TODO: make a table view of this.
-
-		t := time.Now()
-		tMin, err := time.ParseInLocation(timeutils.DefaultLayout, timeMin, t.Location())
-		if err != nil {
-			log.Fatalf("min-time format is not valid: %v", err)
-		}
-		tMax, err := time.ParseInLocation(timeutils.DefaultLayout, timeMax, t.Location())
-		if err != nil {
-			log.Fatalf("max-time format is not valid: %v", err)
-		}
+		tMin, tMax := ParseDates(startDate, endDate)
 
 		srv := api.GetCalendar()
 
 		loading := make(chan bool)
 		go utils.ShowLoading(loading)
-		events, err := srv.Events.List("primary").ShowDeleted(false).SingleEvents(true).TimeMin(tMin.Local().Format(time.RFC3339)).TimeMax(tMax.Format(time.RFC3339)).MaxResults(max).OrderBy("startTime").Do()
+		events, err := srv.Events.List("primary").ShowDeleted(false).SingleEvents(true).TimeMin(tMin.Format(time.RFC3339)).TimeMax(tMax.Format(time.RFC3339)).MaxResults(max).OrderBy("startTime").Do()
 		loading <- true
 		close(loading)
 
@@ -97,8 +87,8 @@ var eventsCmd = &cobra.Command{
 			event := Event{
 				// Id:        item.Id,
 				Summary:   item.Summary,
-				Start:     start.Format(timeutils.DefaultLayout),
-				End:       end.Format(timeutils.DefaultLayout),
+				Start:     start.Format(timeutils.DefaultLayoutWithTime),
+				End:       end.Format(timeutils.DefaultLayoutWithTime),
 				Attendees: attendeeInfo,
 			}
 			row := []string{event.Summary, event.Start, event.End, event.Attendees}
@@ -110,17 +100,47 @@ var eventsCmd = &cobra.Command{
 }
 
 func init() {
-	eventsCmd.Flags().BoolVar(&showAttendee, "show-attendee", false, "show attendee")
-	eventsCmd.Flags().StringVar(&timeMin, "min-time", time.Now().Format(timeutils.DefaultLayout), "min-time of the events to be fetched\n")
-	eventsCmd.Flags().StringVar(&timeMax, "max-time", timeutils.EndOfDay(time.Now()).Format(timeutils.DefaultLayout), "max-time of the events to be fetched\n")
+	eventsCmd.Flags().StringVar(&startDate, "start-date", "", "start date to query\n format('31 08 2024' or '31 08 2024 15:00')")
+	eventsCmd.Flags().StringVar(&endDate, "end-date", "", "end date to query\n format('31 08 2024' or '31 08 2024 15:00')")
 	eventsCmd.Flags().Int64VarP(&max, "max", "m", 10, "max events to be fetched")
 	rootCmd.AddCommand(eventsCmd)
 }
 
-var showAttendee bool
+func ParseDates(start, end string) (time.Time, time.Time) {
+	t := time.Now()
+
+	if start == "" {
+		start = t.Format(timeutils.DefaultLayoutWithTime)
+	}
+	s, err := time.ParseInLocation(timeutils.DefaultLayout, start, t.Location())
+	if err != nil {
+		s, err = time.ParseInLocation(timeutils.DefaultLayoutWithTime, start, t.Location())
+		if err != nil {
+			log.Fatalf("unable to parse start date: %v\n", err)
+		}
+	}
+
+	if end == "" {
+		fmt.Println("this fired!")
+		end = timeutils.EndOfDay(s).Format(timeutils.DefaultLayout)
+	}
+
+	e, err := time.ParseInLocation(timeutils.DefaultLayout, end, t.Location())
+	if err != nil {
+		log.Fatalf("unable to parse end date: %v\n", err)
+	}
+	e = timeutils.EndOfDay(e)
+
+	if s.After(e) {
+		log.Fatalf("end date must not be greater than start date")
+	}
+
+	return s, e
+}
+
 var max int64
-var timeMin string
-var timeMax string
+var startDate string
+var endDate string
 
 type Event struct {
 	// Id        string `json:"id"`

@@ -14,7 +14,7 @@ import (
 )
 
 var setupCmd = &cobra.Command{
-	Use:   "setup",
+	Use:   "config",
 	Short: "create a .config/ directory at user home directory to store credentials and token json",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("seting up gcal-cli")

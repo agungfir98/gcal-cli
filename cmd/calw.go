@@ -29,6 +29,7 @@ var calwCmd = &cobra.Command{
 			day := sunday.AddDate(0, 0, i)
 			weekHeaderSlc[i] = day.Format("Mon (02)")
 		}
+		sun := time.Date(sunday.Year(), sunday.Month(), sunday.Day(), 0, 0, 0, 0, now.Location())
 
 		table := tablewriter.NewWriter(os.Stdout)
 		table.SetHeader(weekHeaderSlc[:])
@@ -37,7 +38,7 @@ var calwCmd = &cobra.Command{
 
 		loading := make(chan bool)
 		go utils.ShowLoading(loading)
-		events, err := srv.Events.List("primary").ShowDeleted(false).SingleEvents(true).TimeMin(sunday.Format(time.RFC3339)).TimeMax(timeutils.EndOfDay(sunday.AddDate(0, 0, 6)).Format(time.RFC3339)).OrderBy("startTime").Do()
+		events, err := srv.Events.List("primary").ShowDeleted(false).SingleEvents(true).TimeMin(sun.Format(time.RFC3339)).TimeMax(timeutils.EndOfDay(sunday.AddDate(0, 0, 6)).Format(time.RFC3339)).OrderBy("startTime").Do()
 		loading <- true
 
 		if err != nil {

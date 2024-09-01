@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version string = "v0.2.1"
+const version string = "v0.2.2"
 
 var rootCmd = &cobra.Command{
 	Use:     "gcal-cli",

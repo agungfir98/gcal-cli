@@ -27,7 +27,7 @@ var eventsCmd = &cobra.Command{
 
 		loading := make(chan bool)
 		go utils.ShowLoading(loading)
-		events, err := srv.Events.List("primary").ShowDeleted(false).SingleEvents(true).TimeMin(tMin.Format(time.RFC3339)).TimeMax(tMax.Format(time.RFC3339)).MaxResults(max).OrderBy("startTime").Do()
+		events, err := srv.Events.List("primary").ShowDeleted(false).SingleEvents(true).TimeMin(tMin.Format(time.RFC3339)).TimeMax(tMax.Format(time.RFC3339)).OrderBy("startTime").MaxResults(limit).Do()
 		loading <- true
 		close(loading)
 
@@ -103,6 +103,7 @@ func init() {
 	eventsCmd.Flags().StringVar(&startDate, "start-date", "", "start date to query\n format('31 08 2024' or '31 08 2024 15:00')")
 	eventsCmd.Flags().StringVar(&endDate, "end-date", "", "end date to query\n format('31 08 2024' or '31 08 2024 15:00')")
 	eventsCmd.Flags().Int64VarP(&max, "max", "m", 10, "max events to be fetched")
+	eventsCmd.Flags().Int64VarP(&limit, "limit", "L", 10, "limit event result fetched")
 	rootCmd.AddCommand(eventsCmd)
 }
 
@@ -140,6 +141,7 @@ func ParseDates(start, end string) (time.Time, time.Time) {
 var max int64
 var startDate string
 var endDate string
+var limit int64
 
 type Event struct {
 	// Id        string `json:"id"`

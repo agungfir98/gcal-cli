@@ -18,7 +18,7 @@ import (
 
 var calwCmd = &cobra.Command{
 	Use:   "calw",
-	Short: "get a week calendar",
+	Short: "get a week event calendar",
 	Run: func(cmd *cobra.Command, args []string) {
 		now := time.Now()
 		weekday := int(now.Weekday())

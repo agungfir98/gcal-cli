@@ -31,7 +31,7 @@ func GetClient(config *oauth2.Config) *http.Client {
 	}
 
 	if refreshedToken.AccessToken != token.AccessToken {
-		fmt.Printf("\rToken refreshed, saving token file to: %s\n", tokenFile)
+		fmt.Print("\rToken refreshed")
 		saveToken(tokenFile, refreshedToken)
 	}
 

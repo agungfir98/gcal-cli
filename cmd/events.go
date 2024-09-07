@@ -4,16 +4,17 @@ Copyright © 2024 Agung Firmansyah agungfir98@gmail.com
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
 	"github.com/agungfir98/gcal-cli/api"
-	"github.com/agungfir98/gcal-cli/utils"
 	timeutils "github.com/agungfir98/gcal-cli/utils/time_utils"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
+	"google.golang.org/api/calendar/v3"
 )
 
 var eventsCmd = &cobra.Command{
@@ -21,132 +22,203 @@ var eventsCmd = &cobra.Command{
 	Short: "shows event in your google calendar",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		tMin, tMax := ParseDates(startDate, endDate)
-
 		srv := api.GetCalendar()
-
-		loading := make(chan bool)
-		go utils.ShowLoading(loading)
-		events, err := srv.Events.List("primary").ShowDeleted(false).SingleEvents(true).TimeMin(tMin.Format(time.RFC3339)).TimeMax(tMax.Format(time.RFC3339)).OrderBy("startTime").MaxResults(limit).Do()
-		loading <- true
-		close(loading)
-
-		if err != nil {
-			log.Fatalf("unable to retreive next ten events: %v\n", err)
-		}
-		fmt.Println("upcoming events")
-		if len(events.Items) == 0 {
-			fmt.Println("no upcomeing event")
-			return
-		}
-
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"summary", "start", "end", "attendee"})
-
-		for _, item := range events.Items {
-			itemStart := item.Start.DateTime
-			if itemStart == "" {
-				dateStart, err := time.Parse(timeutils.AllDayDefaultLayout, item.Start.Date)
-				if err != nil {
-					fmt.Printf("unable to parse all day date: %v\n", err)
-				}
-				itemStart = dateStart.Format(time.RFC3339)
-			}
-
-			start, err := time.Parse(time.RFC3339, itemStart)
-			if err != nil {
-				log.Fatalf("unable to parse time start")
-			}
-
-			itemEnd := item.End.DateTime
-			if itemEnd == "" {
-				dateEnd, err := time.Parse(timeutils.AllDayDefaultLayout, item.Start.Date)
-				if err != nil {
-					fmt.Printf("unable to parse all day date: %v\n", err)
-				}
-				itemEnd = timeutils.EndOfDay(dateEnd).Format(time.RFC3339)
-			}
-
-			end, err := time.Parse(time.RFC3339, itemEnd)
-			if err != nil {
-				log.Fatalf("unable to parse time end")
-			}
-
-			var attendeeInfo string
-
-			for i, attendee := range item.Attendees {
-				if i > 0 {
-					attendeeInfo += "\n"
-				}
-				if attendee.DisplayName != "" {
-					attendeeInfo += attendee.DisplayName + "(" + attendee.Email + ")"
-				}
-				attendeeInfo += attendee.Email
-			}
-
-			event := Event{
-				// Id:        item.Id,
-				Summary:   item.Summary,
-				Start:     start.Format(timeutils.DefaultLayoutWithTime),
-				End:       end.Format(timeutils.DefaultLayoutWithTime),
-				Attendees: attendeeInfo,
-			}
-			row := []string{event.Summary, event.Start, event.End, event.Attendees}
-			table.Append(row)
-		}
-
-		table.Render()
+		calendar := NewCalendar()
+		calendar.GetEvents(srv)
+		calendar.Filter()
+		calendar.Render()
 	},
 }
 
+var (
+	startDate     string
+	endDate       string
+	limit         int64
+	dateFormat    string
+	excludeAllDay bool
+)
+
+type Show string
+
+const (
+	Table Show = "table"
+	List  Show = "list"
+)
+
+func (s *Show) String() string {
+	return string(*s)
+}
+
+func (s *Show) Type() string {
+	return "Show"
+}
+
+func (s *Show) Set(v string) error {
+	switch v {
+	case "table", "list":
+		*s = Show(v)
+		return nil
+	default:
+		return errors.New(`must be one of "table" or "list" `)
+	}
+}
+
+var show Show = Table
+
 func init() {
-	eventsCmd.Flags().StringVar(&startDate, "start-date", "", "start date to query\n format('31 08 2024' or '31 08 2024 15:00')")
-	eventsCmd.Flags().StringVar(&endDate, "end-date", "", "end date to query\n format('31 08 2024' or '31 08 2024 15:00')")
-	eventsCmd.Flags().Int64VarP(&max, "max", "m", 10, "max events to be fetched")
+	eventsCmd.Flags().StringVar(&startDate, "start-date", "", "start date to query")
+	eventsCmd.Flags().StringVar(&endDate, "end-date", "", "end date to query")
+	eventsCmd.Flags().StringVar(&dateFormat, "date-format", "%d %m %Y %H:%M", "date format for input and output date")
 	eventsCmd.Flags().Int64VarP(&limit, "limit", "L", 10, "limit event result fetched")
+	eventsCmd.Flags().Var(&show, "show", "show enum. allowed('table', 'list')")
+	eventsCmd.Flags().BoolVar(&excludeAllDay, "exclude-all-day", false, "exclude all day event")
+
 	rootCmd.AddCommand(eventsCmd)
 }
 
-func ParseDates(start, end string) (time.Time, time.Time) {
-	t := time.Now()
-
-	if start == "" {
-		start = t.Format(timeutils.DefaultLayoutWithTime)
-	}
-	s, err := time.ParseInLocation(timeutils.DefaultLayout, start, t.Location())
-	if err != nil {
-		s, err = time.ParseInLocation(timeutils.DefaultLayoutWithTime, start, t.Location())
-		if err != nil {
-			log.Fatalf("unable to parse start date: %v\n", err)
-		}
-	}
-
-	if end == "" {
-		end = timeutils.EndOfDay(s).Format(timeutils.DefaultLayout)
-	}
-
-	e, err := time.ParseInLocation(timeutils.DefaultLayout, end, t.Location())
-	if err != nil {
-		log.Fatalf("unable to parse end date: %v\n", err)
-	}
-	e = timeutils.EndOfDay(e)
-
-	if s.After(e) {
-		log.Fatalf("end date must not be greater than start date")
-	}
-
-	return s, e
+type EventList struct {
+	Summary   string
+	Start     string
+	End       string
+	Attendees []string
+	Link      string
 }
 
-var max int64
-var startDate string
-var endDate string
-var limit int64
+type Flags struct {
+	limit         int64
+	dateFormat    string
+	startDate     string
+	excludeAllDay bool
+	endDate       string
+	show          Show
+}
 
-type Event struct {
-	// Id        string `json:"id"`
-	Start     string `json:"start"`
-	Summary   string `json:"summary"`
-	End       string `json:"end"`
-	Attendees string `json:"attendee"`
+func NewFlags() *Flags {
+	f := &Flags{
+		limit:         limit,
+		dateFormat:    dateFormat,
+		startDate:     startDate,
+		endDate:       endDate,
+		show:          show,
+		excludeAllDay: excludeAllDay,
+	}
+	return f
+}
+
+type Calendar struct {
+	flags     *Flags
+	events    *calendar.Events
+	eventlist []EventList
+}
+
+func NewCalendar() *Calendar {
+	c := &Calendar{}
+	c.flags = NewFlags()
+	return c
+}
+
+func (c *Calendar) GetEvents(service *calendar.Service) {
+
+	if c.flags.startDate == "" {
+		c.flags.startDate = time.Now().Format(timeutils.ConvertToGoLayout(c.flags.dateFormat))
+	}
+	if c.flags.endDate == "" {
+		c.flags.endDate = time.Now().Add(time.Hour * 12).Format(timeutils.ConvertToGoLayout(c.flags.dateFormat))
+	}
+
+	tMin, err := timeutils.ParseWithCustomFormat(c.flags.dateFormat, c.flags.startDate)
+	if err != nil {
+		log.Fatalf("unable to parse start date parameter")
+	}
+	tMax, err := timeutils.ParseWithCustomFormat(c.flags.dateFormat, c.flags.endDate)
+	if err != nil {
+		log.Fatalf("unable to parse end date parameter")
+	}
+
+	if tMin.After(tMax) {
+		log.Fatalf("start date can't be greater than end date")
+	}
+
+	events, err := service.Events.List("primary").MaxResults(c.flags.limit).TimeMin(tMin.Format(time.RFC3339)).TimeMax(tMax.Format(time.RFC3339)).Do()
+	if err != nil {
+		log.Fatalf("unable to retreive events")
+	}
+	c.events = events
+}
+
+func (c *Calendar) Filter() {
+	var Items []*calendar.Event
+
+	for _, item := range c.events.Items {
+		if c.flags.excludeAllDay && item.Start.DateTime == "" {
+			continue
+		}
+		Items = append(Items, item)
+	}
+	c.events.Items = Items
+}
+
+func (c *Calendar) Render() {
+	switch c.flags.show {
+	case Table:
+		table := tablewriter.NewWriter(os.Stdout)
+
+		for _, item := range c.events.Items {
+			var start string
+			if item.Start.DateTime == "" {
+				start = item.Start.Date
+			} else {
+				parsed, err := time.Parse(time.RFC3339, item.Start.DateTime)
+				if err != nil {
+					log.Fatalf("unable to parse start date")
+				}
+				start = parsed.Format(timeutils.ConvertToGoLayout(dateFormat))
+			}
+
+			var end string
+			if item.End.DateTime == "" {
+				end = item.End.Date
+			} else {
+				parsed, err := time.Parse(time.RFC3339, item.End.DateTime)
+				if err != nil {
+					log.Fatalf("unable to parse end date 2")
+				}
+				end = parsed.Format(timeutils.ConvertToGoLayout(c.flags.dateFormat))
+			}
+
+			var attendees []string
+			for _, attendee := range item.Attendees {
+				attendees = append(attendees, attendee.Email)
+			}
+
+			c.eventlist = append(c.eventlist, EventList{
+				Summary:   item.Summary,
+				Start:     start,
+				End:       end,
+				Attendees: attendees,
+				Link:      item.HangoutLink,
+			})
+		}
+
+		for _, event := range c.eventlist {
+			var attendees string
+			for i, attendee := range event.Attendees {
+				if i > 0 {
+					attendees += "\n"
+				}
+				attendees += attendee
+
+			}
+			table.Append([]string{event.Summary, event.Start, event.End, attendees, event.Link})
+		}
+
+		table.SetHeader([]string{"summary", "start", "end", "attendees", "link"})
+		table.Render()
+	case List:
+		// TODO: continue tomorrow 2024-09-08 implement the list render
+		fmt.Println("a listttt")
+		fmt.Println(show)
+	default:
+		log.Fatalf("enum is not correct and this message should not show. please contact the project owner")
+	}
 }

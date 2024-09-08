@@ -139,9 +139,9 @@ func (c *Calendar) GetEvents(service *calendar.Service) {
 		log.Fatalf("start date can't be greater than end date")
 	}
 
-	events, err := service.Events.List("primary").MaxResults(c.flags.limit).TimeMin(tMin.Format(time.RFC3339)).TimeMax(tMax.Format(time.RFC3339)).Do()
+	events, err := service.Events.List("primary").ShowDeleted(false).SingleEvents(true).OrderBy("startTime").MaxResults(c.flags.limit).TimeMin(tMin.Format(time.RFC3339)).TimeMax(tMax.Format(time.RFC3339)).Do()
 	if err != nil {
-		log.Fatalf("unable to retreive events")
+		log.Fatalf("unable to retreive events: %v", err)
 	}
 	c.events = events
 }
@@ -216,7 +216,6 @@ func (c *Calendar) Render() {
 		table.Render()
 	case List:
 		// TODO: continue tomorrow 2024-09-08 implement the list render
-		fmt.Printf("%+v\n", c.eventlist)
 		for _, item := range c.eventlist {
 			fmt.Printf("summary\t\t: %v\n", item.Summary)
 			fmt.Printf("start\t\t: %v\n", item.Start)

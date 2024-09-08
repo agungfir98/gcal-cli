@@ -216,8 +216,15 @@ func (c *Calendar) Render() {
 		table.Render()
 	case List:
 		// TODO: continue tomorrow 2024-09-08 implement the list render
-		fmt.Println("a listttt")
-		fmt.Println(show)
+		fmt.Printf("%+v\n", c.eventlist)
+		for _, item := range c.eventlist {
+			fmt.Printf("summary\t\t: %v\n", item.Summary)
+			fmt.Printf("start\t\t: %v\n", item.Start)
+			fmt.Printf("end\t\t: %v\n", item.End)
+			fmt.Printf("attendees\t: %v\n", item.Attendees)
+			fmt.Printf("link\t\t: %v\n", item.Link)
+			fmt.Println("")
+		}
 	default:
 		log.Fatalf("enum is not correct and this message should not show. please contact the project owner")
 	}

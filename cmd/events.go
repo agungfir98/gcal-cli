@@ -159,47 +159,47 @@ func (c *Calendar) Filter() {
 }
 
 func (c *Calendar) Render() {
+
+	for _, item := range c.events.Items {
+		var start string
+		if item.Start.DateTime == "" {
+			start = item.Start.Date
+		} else {
+			parsed, err := time.Parse(time.RFC3339, item.Start.DateTime)
+			if err != nil {
+				log.Fatalf("unable to parse start date")
+			}
+			start = parsed.Format(timeutils.ConvertToGoLayout(dateFormat))
+		}
+
+		var end string
+		if item.End.DateTime == "" {
+			end = item.End.Date
+		} else {
+			parsed, err := time.Parse(time.RFC3339, item.End.DateTime)
+			if err != nil {
+				log.Fatalf("unable to parse end date 2")
+			}
+			end = parsed.Format(timeutils.ConvertToGoLayout(c.flags.dateFormat))
+		}
+
+		var attendees []string
+		for _, attendee := range item.Attendees {
+			attendees = append(attendees, attendee.Email)
+		}
+
+		c.eventlist = append(c.eventlist, EventList{
+			Summary:   item.Summary,
+			Start:     start,
+			End:       end,
+			Attendees: attendees,
+			Link:      item.HangoutLink,
+		})
+	}
+
 	switch c.flags.show {
 	case Table:
 		table := tablewriter.NewWriter(os.Stdout)
-
-		for _, item := range c.events.Items {
-			var start string
-			if item.Start.DateTime == "" {
-				start = item.Start.Date
-			} else {
-				parsed, err := time.Parse(time.RFC3339, item.Start.DateTime)
-				if err != nil {
-					log.Fatalf("unable to parse start date")
-				}
-				start = parsed.Format(timeutils.ConvertToGoLayout(dateFormat))
-			}
-
-			var end string
-			if item.End.DateTime == "" {
-				end = item.End.Date
-			} else {
-				parsed, err := time.Parse(time.RFC3339, item.End.DateTime)
-				if err != nil {
-					log.Fatalf("unable to parse end date 2")
-				}
-				end = parsed.Format(timeutils.ConvertToGoLayout(c.flags.dateFormat))
-			}
-
-			var attendees []string
-			for _, attendee := range item.Attendees {
-				attendees = append(attendees, attendee.Email)
-			}
-
-			c.eventlist = append(c.eventlist, EventList{
-				Summary:   item.Summary,
-				Start:     start,
-				End:       end,
-				Attendees: attendees,
-				Link:      item.HangoutLink,
-			})
-		}
-
 		for _, event := range c.eventlist {
 			var attendees string
 			for i, attendee := range event.Attendees {

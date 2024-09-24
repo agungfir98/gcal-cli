@@ -1,7 +1,6 @@
 package timeutils
 
 import (
-	"fmt"
 	"strings"
 	"time"
 )
@@ -14,19 +13,6 @@ func EndOfDay(t time.Time) time.Time {
 	y, m, d := t.Date()
 
 	return time.Date(y, m, d, 23, 59, 59, 0, t.Location())
-}
-
-func ParseTimeLayout(input string) (time.Time, error) {
-	now := time.Now()
-	var err error
-
-	for _, layout := range layouts {
-		t, err := time.ParseInLocation(layout, input, now.Location())
-		if err == nil {
-			return t, nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("unable to parse date: %v\n", err)
 }
 
 var layouts = []string{

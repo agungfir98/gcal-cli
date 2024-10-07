@@ -7,7 +7,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
+	"github.com/agungfir98/gcal-cli/utils/browser"
 	pathutils "github.com/agungfir98/gcal-cli/utils/path_utils"
 	"golang.org/x/oauth2"
 )
@@ -55,13 +57,34 @@ func TokenFromFile(file string) (*oauth2.Token, error) {
 func GetTokenFromWeb(cfg *oauth2.Config) *oauth2.Token {
 	authUrl := cfg.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 
-	fmt.Printf("visit the following to link to obtain the code:\n %v\n", authUrl)
+	browser, err := browser.GetBrowserOpener()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	err = browser.Open(authUrl)
+	if err != nil {
+		log.Printf("unable to open the browser, you may do it manually.\n visit: %v", authUrl)
+	}
 
 	var authCode string
 
-	fmt.Print("paste the code in the url here: ")
-	if _, err := fmt.Scan(&authCode); err != nil {
-		log.Fatalf("Unable to read authorization code: %v", err)
+	inputCh := make(chan string)
+
+	go func() {
+		fmt.Print("paste the code in the url here: ")
+		if _, err := fmt.Scan(&authCode); err != nil {
+			log.Fatalf("Unable to read authorization code: %v", err)
+		}
+		inputCh <- authCode
+	}()
+
+	select {
+	case <-inputCh:
+		fmt.Println("converting auth code into token")
+	case <-time.After(3 * time.Minute):
+		fmt.Println("\nTimeout no input received")
+		os.Exit(1)
 	}
 
 	tok, err := cfg.Exchange(context.TODO(), authCode)

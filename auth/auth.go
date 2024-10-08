@@ -7,55 +7,77 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
+	"github.com/agungfir98/gcal-cli/server"
 	"github.com/agungfir98/gcal-cli/utils/browser"
 	pathutils "github.com/agungfir98/gcal-cli/utils/path_utils"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/calendar/v3"
 )
 
-func GetClient(config *oauth2.Config) *http.Client {
-	tokenFile := pathutils.GetTokenFile()
-	token, err := TokenFromFile(tokenFile)
-	if err != nil {
-		token = GetTokenFromWeb(config)
-		fmt.Printf("\rSaving token file to: %s\n", tokenFile)
-		saveToken(tokenFile, token)
-	}
-
-	tokenSource := config.TokenSource(context.Background(), token)
-	refreshedToken, err := tokenSource.Token()
-	if err != nil {
-		fmt.Printf("unable to refresh the token: %v\n", err)
-		token = GetTokenFromWeb(config)
-		fmt.Printf("\rSaving token file to: %s\n", tokenFile)
-		saveToken(tokenFile, token)
-	}
-
-	if refreshedToken.AccessToken != token.AccessToken {
-		fmt.Print("\rToken refreshed")
-		saveToken(tokenFile, refreshedToken)
-	}
-
-	return config.Client(context.Background(), token)
+type Client struct {
+	codeCh    chan string
+	config    *oauth2.Config
+	token     *oauth2.Token
+	tokenFile string
 }
 
-func TokenFromFile(file string) (*oauth2.Token, error) {
-	f, err := os.Open(file)
+func NewClient() *Client {
+	cred := GetCredential()
+	cfg, err := google.ConfigFromJSON(cred, calendar.CalendarReadonlyScope)
 	if err != nil {
-		return nil, err
+		log.Fatalf("unable to parse client secret file to config: %v\n", err)
+	}
+
+	c := &Client{}
+	c.codeCh = make(chan string)
+	c.config = cfg
+	c.config.RedirectURL = "http://localhost:8080/callback"
+	c.tokenFile = pathutils.GetTokenFile()
+
+	return c
+}
+
+func (c *Client) GetClient() *http.Client {
+	token, err := c.tokenFromFile()
+	if err != nil {
+		c.getTokenFromWeb()
+		c.saveToken()
+		return c.client()
+	}
+
+	c.token = token
+	err = c.refreshToken()
+	if err != nil {
+		c.getTokenFromWeb()
+		c.saveToken()
+		return c.client()
+	}
+
+	return c.client()
+}
+
+func (c *Client) tokenFromFile() (*oauth2.Token, error) {
+	f, err := os.Open(c.tokenFile)
+	if err != nil {
+		return nil, fmt.Errorf("error occured: %v\n", err)
 	}
 
 	defer f.Close()
+	token := &oauth2.Token{}
+	err = json.NewDecoder(f).Decode(token)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding token: %v\n", err)
+	}
 
-	t := &oauth2.Token{}
-
-	err = json.NewDecoder(f).Decode(t)
-	return t, err
+	return token, nil
 }
 
-func GetTokenFromWeb(cfg *oauth2.Config) *oauth2.Token {
-	authUrl := cfg.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+func (c *Client) getTokenFromWeb() {
+	authUrl := c.config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 
 	browser, err := browser.GetBrowserOpener()
 	if err != nil {
@@ -65,44 +87,95 @@ func GetTokenFromWeb(cfg *oauth2.Config) *oauth2.Token {
 	err = browser.Open(authUrl)
 	if err != nil {
 		log.Printf("unable to open the browser, you may do it manually.\n visit: %v", authUrl)
-	}
+		var authCode string
 
-	var authCode string
+		inputCh := make(chan string)
 
-	inputCh := make(chan string)
+		go func() {
+			fmt.Print("paste the code in the url here: ")
+			if _, err := fmt.Scan(&authCode); err != nil {
+				log.Fatalf("Unable to read authorization code: %v", err)
+			}
+			inputCh <- authCode
+		}()
 
-	go func() {
-		fmt.Print("paste the code in the url here: ")
-		if _, err := fmt.Scan(&authCode); err != nil {
-			log.Fatalf("Unable to read authorization code: %v", err)
+		select {
+		case <-inputCh:
+			fmt.Println("converting auth code into token")
+		case <-time.After(3 * time.Minute):
+			fmt.Println("\nTimeout no input received")
+			os.Exit(1)
 		}
-		inputCh <- authCode
-	}()
 
-	select {
-	case <-inputCh:
-		fmt.Println("converting auth code into token")
-	case <-time.After(3 * time.Minute):
-		fmt.Println("\nTimeout no input received")
-		os.Exit(1)
+		token, err := c.config.Exchange(context.TODO(), authCode)
+
+		if err != nil {
+			log.Fatalf("unable to retreive token from web: %v\n", err)
+		}
+
+		c.token = token
+		return
 	}
 
-	tok, err := cfg.Exchange(context.TODO(), authCode)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 
+	server := server.NewServer(":8080", c.codeCh)
+
+	server.Start(&wg)
+
+	code := <-c.codeCh
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		fmt.Println("Error shutting down server:", err)
+	}
+
+	wg.Wait()
+
+	token, err := c.config.Exchange(context.Background(), code)
 	if err != nil {
 		log.Fatalf("unable to retreive token from web: %v\n", err)
 	}
 
-	return tok
+	c.token = token
+	return
 }
 
-func saveToken(path string, token *oauth2.Token) {
-	f, err := os.Create(path)
+func (c *Client) saveToken() {
+	fmt.Printf("\rSaving token file to: %s\n", c.tokenFile)
+
+	if c.token == nil {
+		log.Fatalf("no token")
+	}
+
+	f, err := os.Create(c.tokenFile)
 	if err != nil {
 		log.Fatalf("Unable to cache oauth token: %v", err)
 	}
 	defer f.Close()
-	json.NewEncoder(f).Encode(token)
+	err = json.NewEncoder(f).Encode(c.token)
+	if err != nil {
+		log.Fatalf("failed to encode token: %v\n", err)
+	}
+}
+
+func (c *Client) client() *http.Client {
+	return c.config.Client(context.Background(), c.token)
+}
+
+func (c *Client) refreshToken() error {
+	tokenSource := c.config.TokenSource(context.Background(), c.token)
+	token, err := tokenSource.Token()
+	if err != nil {
+		return fmt.Errorf("unable to refresh token: %v", err)
+	}
+	c.token = token
+
+	return nil
+
 }
 
 func GetCredential() []byte {

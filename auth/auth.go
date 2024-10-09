@@ -78,6 +78,7 @@ func (c *Client) tokenFromFile() (*oauth2.Token, error) {
 
 func (c *Client) getTokenFromWeb() {
 	authUrl := c.config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	var code string
 
 	browser, err := browser.GetBrowserOpener()
 	if err != nil {
@@ -86,28 +87,25 @@ func (c *Client) getTokenFromWeb() {
 
 	err = browser.Open(authUrl)
 	if err != nil {
-		log.Printf("unable to open the browser, you may do it manually.\n visit: %v", authUrl)
-		var authCode string
-
-		inputCh := make(chan string)
+		log.Printf("unable to open the browser, you may do it manually.\n visit: %v\n", authUrl)
 
 		go func() {
-			fmt.Print("paste the code in the url here: ")
-			if _, err := fmt.Scan(&authCode); err != nil {
+			fmt.Print("find 'code' query in the url and paste the code here: ")
+			if _, err := fmt.Scan(&code); err != nil {
 				log.Fatalf("Unable to read authorization code: %v", err)
 			}
-			inputCh <- authCode
+			c.codeCh <- code
 		}()
 
 		select {
-		case <-inputCh:
+		case <-c.codeCh:
 			fmt.Println("converting auth code into token")
 		case <-time.After(3 * time.Minute):
 			fmt.Println("\nTimeout no input received")
 			os.Exit(1)
 		}
 
-		token, err := c.config.Exchange(context.TODO(), authCode)
+		token, err := c.config.Exchange(context.TODO(), code)
 
 		if err != nil {
 			log.Fatalf("unable to retreive token from web: %v\n", err)
@@ -124,12 +122,9 @@ func (c *Client) getTokenFromWeb() {
 
 	server.Start(&wg)
 
-	code := <-c.codeCh
+	code = <-c.codeCh
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(); err != nil {
 		fmt.Println("Error shutting down server:", err)
 	}
 

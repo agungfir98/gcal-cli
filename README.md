@@ -26,7 +26,7 @@ go install github.com/agungfir98/gcal-cli@latest
 
 ## setup
 
-Run the following command to create `./config/gcal-cli` in your user home directory, this directory is where you can store the credentials.json and the oauth2 token
+Run the following command to create `(your home dir)/.config/gcal-cli` in your user home directory, this directory is where you can store the credentials.json and the oauth2 token
 
 ```shell
 gcal-cli config
